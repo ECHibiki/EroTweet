@@ -26,12 +26,11 @@ function urlEncodeCustom($value){
 		
 		return $value;
 }
-function tweetEncode(){}
 function generateSingature($request, $message, $params, $secrets){	
 	  // BUILD SIGNATURE
 	$request_method = strtoupper($request["request_method"]);
 	$base_url = urlEncodeCustom($request["base_url"]);
-	$paramter_string = urlEncodeCustom("include_entities=". $message["include_entities"] . "&oauth_consumer_key=" . $params["oauth_consumer_key"]
+	$paramter_string = urlEncodeCustom("include_entities=". $message["include_entities"] . "&media_id=" . $message["media_id"] . "&oauth_consumer_key=" . $params["oauth_consumer_key"]
 	 . "&oauth_nonce=" . $params["oauth_nonce"] . "&oauth_signature_method=" . $params["oauth_signature_method"] . "&oauth_timestamp=" . $params["oauth_timestamp"]."&oauth_token=" . $params["oauth_token"] .
 	 "&oauth_version=" .$params["oauth_version"]	 . "&status=" . $message["status"]) . "";	
 	
@@ -49,28 +48,37 @@ function generateSingature($request, $message, $params, $secrets){
 	return base64_encode($split_hex_signature);
 }
 
-function makeTweet($comment, $upload_location){
+function makeTweet($comment, $file_arr){
+	/*
+		1. Create a set of media ID's.
+		2. Add to $postfield_string if there's an image
+		3. Authenticate post and submit it to Twitter
+	*/
+	
+//image info
+$image_string = "";//delimited by ',' commas
+for($i = 0 ; $i < 4 ; $i++){
+	if($file_arr[$i] != 0){
+		$file_arr[$i] = 0;
+		//create data in binary/b64
+		//upload file to twitter and get id for use in files?
+	}
+}
 
 //access info
 $access_url = "https://api.twitter.com/1.1/statuses/update.json";
 $request_method = "POST";
 
-//image info
-
-				//create data in binary/b64
-				//upload file to twitter and get id for use in files?
-
 //message info
 $encode_tweet_msg = statusEncodeCustom($comment);
 $include_entities = "true";
 
-				//if image, append to postfield_string the media code via media_id=$media_id
-
-$postfield_string = "include_entities=$include_entities&status=$encode_tweet_msg";
+//append to postfield_string the media code via media_id=$media_id
+$postfield_string = "include_entities=$include_entities&status=$encode_tweet_msg&media_id=$image_string";
 $msg_len = (strlen($postfield_string));
 
 
-echo "$comment <br/> $encode_tweet_msg <br/> $msg_len<br/>$upload_location<br/>";
+echo "$comment <br/> $encode_tweet_msg <br/> $msg_len<br/>$file_arr<br/>";
 
 //authorization details
 $consumer_key = "lndyLcxxPVEKsH7kJgkKP5536";
@@ -93,7 +101,8 @@ $signature = urlEncodeCustom(generateSingature(array(
 									),
 								array(
 									"include_entities" => "$include_entities",
-									"status" => "$encode_tweet_msg"
+									"status" => "$encode_tweet_msg",
+									"media_id" => "$image_string"
 									),									
 								array(
 									"oauth_version" => "$oauth_version",

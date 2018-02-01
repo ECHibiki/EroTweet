@@ -1,0 +1,1 @@
+<?php //When called, make a request to pull a tweet from an SQL table ?>

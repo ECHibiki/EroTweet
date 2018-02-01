@@ -1,55 +1,99 @@
 <html>
-<head><meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 	<base href="http://verniy.xyz/twitter/" />
 	<title>Submit to @VerniyEro</title>
 </head>
 <body>
-<h1>Submit to @VerniyEro</h1>
+<h1>Submit to <a href="https://twitter.com/VerniyEro/">@VerniyEro</a></h1>
 
 <form action="add_to_queue.php" enctype="multipart/form-data" method="POST" target="_self">
 <label>Comment:</label><br />
-<textarea id="Comment" name="comment"></textarea>
-
+<textarea id="Comment" name="comment" rows="10" cols="60"></textarea>
 <p id="CharacterCount"></p>
-<input name="MAX_FILE_SIZE" type="hidden" value="5000000" /> 
-<input name="file" type="file" /><input name="file" type="file" /><br/>
-<input name="file" type="file" /><input name="file" type="file" />
+
+<input name="MAX_FILE_SIZE" type="hidden" value="5242880" /> 
+<input name="file1" type="file" id="f1" /><input name="file2" type="file" id="f2" /><br/>
+<input name="file3" type="file" id="f3" /><input name="file4" type="file" id="f4" />
 <hr />
-<p id="errorMsg"></p>
+<p id="errorMsg">Input a comment and/or file</p>
 <input id="submit" type="submit" /></form>
 </body>
 <script>
-			var character_counter = document.getElementById('CharacterCount');
+
+var character_counter = document.getElementById('CharacterCount');
 var error_msg = document.getElementById('errorMsg');
-			var textarea = document.getElementById('Comment');
+var textarea = document.getElementById('Comment');
 var submit = document.getElementById('submit');
 submit.setAttribute('disabled','');
-			function characterCount(){
-				var length = textarea.value.length;
-				var red = 0; var blue = 100; var green = 100;
-if(length == 0) submit.setAttribute('disabled','');
-				if(length > 500){
- red = 255; blue = 0; green = 0;
-submit.setAttribute('disabled','');
-error_msg.innerHTML = "Character count exceeded(>500)";
- }
+
+function setFileListener(file){
+	//https://stackoverflow.com/questions/25793880/how-to-check-if-input-file-is-empty-in-jquery
+	file_node = document.getElementById(file);
+	(function(_file_node){
+		_file_node.addEventListener("change", function(){
+			for(var i = 1 ; i <= 4; i++){
+				if(document.getElementById("f" + i).files.length == 0){
+					var length = textarea.value.length;
+					if(length == 0) {
+						submit.setAttribute('disabled','');
+						error_msg.innerHTML = "Input a comment and/or file";
+					}
+				}
 				else{
- red = Math.ceil(length/500 * 180);
-submit.removeAttribute('disabled');
-error_msg.innerHTML = "Click to submit";
+					var length = textarea.value.length;
+					if(length > 500){
+						characterCount();
+						return;
+					}
+					else{
+						submit.removeAttribute('disabled');
+						error_msg.innerHTML = "Click to submit";
+						return;
+					}
+				}
+			}
+		});
+	})(file_node);
 }
-				character_counter.innerHTML = '<span style=\'color:rgb(' + red + ',' + green + ',' + blue + ')\'>' + length + '</span>'
-			}
-			// https://stackoverflow.com/questions/2823733/textarea-onchange-detection
-			if (textarea.addEventListener) {
-			  textarea.addEventListener('input', function() {
-			    // event handling code for sane browsers
-			    characterCount();
-			  }, false);
-			} else if (textarea.attachEvent) {
-			  textarea.attachEvent('onpropertychange', function() {
-			    // IE-specific event handling code
-			    characterCount();
-			  });
-			}
-		</script></html>
+
+
+for(var i = 1 ; i <= 4; i++) setFileListener("f" + i);
+
+
+function characterCount(){
+	var length = textarea.value.trim().length;
+	var red = 0; var blue = 100; var green = 100;
+	if(length == 0){
+		submit.setAttribute('disabled','');
+		error_msg.innerHTML = "Input a comment and/or file";
+	}
+	else if(length > 500){
+		red = 255; blue = 0; green = 0;
+		submit.setAttribute('disabled','');
+		error_msg.innerHTML = "Character count exceeded(>500)";
+	}
+	else{
+		red = Math.ceil(length/500 * 180);
+		submit.removeAttribute('disabled');
+		error_msg.innerHTML = "Click to submit";
+	}
+	character_counter.innerHTML = '<span style=\'color:rgb(' + red + ',' + green + ',' + blue + ')\'>' + length + '</span>'
+}
+	
+// https://stackoverflow.com/questions/2823733/textarea-onchange-detection
+if (textarea.addEventListener) {
+	textarea.addEventListener('input', function() {
+	// event handling code for sane browsers
+	characterCount();
+  }, false);
+} 
+else if (textarea.attachEvent) {
+	textarea.attachEvent('onpropertychange', function() {
+	// IE-specific event handling code
+	characterCount();
+  });
+}
+
+</script>
+</html>
