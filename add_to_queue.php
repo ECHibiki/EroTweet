@@ -72,6 +72,6 @@ ob_end_clean();
 echo "<br/>Added to post queue<br/>";
 ?>
 
-<a href="http://verniy.xyz/twitter/queue-form.html">Back to Form</a>
+<a href="http://verniy.xyz/twitter/queue_form.html">Back to Form</a>
 </body>
 </html>

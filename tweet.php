@@ -78,21 +78,31 @@ $postfield_string = "include_entities=$include_entities&status=$encode_tweet_msg
 $msg_len = (strlen($postfield_string));
 
 
-echo "$comment <br/> $encode_tweet_msg <br/> $msg_len<br/>$file_arr<br/>";
+echo " <br/> <br/>$comment <br/> $encode_tweet_msg <br/> $msg_len<br/>$file_arr<br/>";
 
 //authorization details
-$consumer_key = "lndyLcxxPVEKsH7kJgkKP5536";
+$settings = fopen("keys.txt","r");
+$keys = array();
+while(!feof($settings)){
+	$line = fgets($settings);
+	$key = substr($line,0,strpos($line, ":"));
+			//eat last character
+	$value = trim(substr($line, strpos($line, ":")+1));
+	$keys[$key] = $value;
+}
+$consumer_key = $keys["consumer_key"];
 $random_value = substr(( base64_encode(rand(1000000000,10000000000000)) . base64_encode(rand(1000000000,10000000000000)) . base64_encode(rand(1000000000000,100000000000000))), 0, 32);
 $random_value =  str_replace("/", "5", str_replace("=", "2", $random_value));
 $method = "HMAC-SHA1";
 $timestamp = time();
-$access_token = "957789221321871366-BOf5fyAmdL3KgTIu3d6lVqHp1I5qP8S";
+$access_token =  $keys["access_token"];
 $oauth_version = "1.0";
 
-//Secrets
-$consumer_secret = "YsGqL7uQMMHJfF897yU0iaNuzmiqm3ytfSr271gEhfQFZVsdvP";
-$oauth_secret = "MuLoP07A8fYMRDRI5mCa8I1WzQMnWZ7gVspvjVTzJZnAO";
+var_dump($keys);
 
+//Secrets
+$consumer_secret = $keys["consumer_secret"];
+$oauth_secret = $keys["oauth_secret"];
 
 				//add media id to the signature
 $signature = urlEncodeCustom(generateSingature(array(
@@ -126,14 +136,16 @@ $header_data = array("Accept: */*", "Connection: close","User-Agent: VerniyXYZ-C
 												
 "Authorization: OAuth oauth_consumer_key=\"$consumer_key\",oauth_nonce=\"$random_value\",oauth_signature=\"$signature\",oauth_signature_method=\"$method\",oauth_timestamp=\"$timestamp\",oauth_token=\"$access_token\",oauth_version=\"$oauth_version\""											
 												);
-												
+										
 //request
 $curl = curl_init($access_url);
 curl_setopt($curl, CURLOPT_POST, 1);
 curl_setopt($curl, CURLOPT_HTTPHEADER, $header_data);
 curl_setopt($curl, CURLOPT_POSTFIELDS, $postfield_string);
-echo "<br/>";
-curl_exec($curl);
+curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+echo "--<br/>";
+$content = curl_exec($curl);
+echo $content;
 }
 echo"run script from externals";
 ?>
