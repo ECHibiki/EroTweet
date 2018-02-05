@@ -6,7 +6,7 @@ $FILE_MAX = 5242880;
 $COMMENT_MAX = 500;
 var_dump($_POST);
 echo "<br/>";
-if(strlen($_POST["comment"]) > $COMMENT_MAX){
+if(mb_strlen($_POST["comment"]) > $COMMENT_MAX){
 	echo "Comment too long-Server<br/>";
 	return;
 } 
@@ -28,7 +28,7 @@ for($file = 1; $file <= 4; $file++){
 		} 
 		else {
 			echo "file" . (string)$file . " Upload Error <br/>";
-			$file_arr[$file - 1] = 0;
+			$file_arr[$file - 1] = "0";
 			continue;
 		}
 
@@ -48,7 +48,7 @@ for($file = 1; $file <= 4; $file++){
 			echo "file" . (string)$file ." Over filesize limit-Client<br/>";
 		}
 		else if($_FILES["file" . (string)$file]["error"] == 3){
-			echo "file" . (string)$file ." PHP err " . $_FILES["file" . (string)$file]["error"] . "<br/>";
+			echo "file" . (string)$file ." The uploaded file was only partially uploaded. <br/>";
 		}
 		else if($_FILES["file" . (string)$file]["error"] == 4){
 			echo "file" . (string)$file ." Empty<br/>";
@@ -67,7 +67,7 @@ print "</pre>";
 ob_start();
 include("tweet.php");
 ob_end_clean();
-//makeTweet($_POST["comment"], $file_arr);
+makeTweet($_POST["comment"], $file_arr);
 
 echo "<br/>Added to post queue<br/>";
 ?>
