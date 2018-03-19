@@ -1,1 +1,0 @@
-<?php //navigate to the various password protected locations and display the next image to be posted. Also include an NSFW scenario ?>
