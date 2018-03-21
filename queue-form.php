@@ -1,5 +1,10 @@
 <?php
-	if($_POST["name"] == "ecorvid" && $_POST["pass"] == "notsecret") setcookie("HentaiQueue", "pervert");
+	if($_POST["name"] == "ecorvid" && $_POST["pass"] == "notsecret"){
+		setcookie("HentaiQueue", "pervert");
+		header("Location: /twitter/");
+	} 
+	else if(isset($_POST["name"]) && isset($_POST["password"])) setcookie("HentaiQueue", "good samaritin");
+	
 ?>
 
 <html>

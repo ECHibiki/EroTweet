@@ -57,7 +57,10 @@ Artist: @<Artist>
 	}
 	
 	function buildPassForm(){
-		echo"<form action=''><input name='name'><br/><input name='pass'><br/><input type='submit' value='Authorize'></form>";
+		echo"<form action='' method='POST'>
+		<input name='name'><br/>
+		<input name='pass' type='password'><br/>
+		<input type='submit' id='authorization-input' value='Authorize'></form>";
 	}
 	
 	function checkCommentValid($tweet_comment){

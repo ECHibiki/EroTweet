@@ -1,3 +1,4 @@
+//Files and character counter
 var character_counter = document.getElementById('CharacterCount');
 var error_msg = document.getElementById('errorMsg');
 var error_msg_text = document.createTextNode("");
