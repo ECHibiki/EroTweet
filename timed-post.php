@@ -15,8 +15,7 @@
 	echo "<hr/>";
 	
 	
-//	$construction->deleteOldestEntry($oldest);
+	$construction->deleteOldestEntry($oldest);
 
-
-	echo "</pre>Found, Added and Deleted<br/>";
+	echo "Found, Added and Deleted<br/>";
 ?>

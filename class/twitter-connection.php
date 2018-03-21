@@ -85,8 +85,6 @@ class TwitterConnection{
 		echo "<br/>-- Fin -- <hr/>";
 		$content = curl_exec($curl);
 		echo $content;
-		
-		die;
 	}
 	
 	function addTweetMedia($file_arr){

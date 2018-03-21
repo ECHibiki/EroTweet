@@ -50,7 +50,14 @@ Artist: @<Artist>
 			<input name="MAX_FILE_SIZE" type="hidden" value="5242880" />
 			<input name="file1" type="file" id="f1" /><input name="file2" type="file" id="f2" /><br/>
 			<input name="file3" type="file" id="f3" /><input name="file4" type="file" id="f4" /><br/>
+			<hr />
+			<p id="errorMsg">Input a comment and/or file</p>
+			<input id="submit" type="submit" /></form>
 		';
+	}
+	
+	function buildPassForm(){
+		echo"<form action=''><input name='name'><br/><input name='pass'><br/><input type='submit' value='Authorize'></form>";
 	}
 	
 	function checkCommentValid($tweet_comment){

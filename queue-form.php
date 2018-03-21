@@ -1,3 +1,7 @@
+<?php
+	if($_POST["name"] == "ecorvid" && $_POST["pass"] == "notsecret") setcookie("HentaiQueue", "pervert");
+?>
+
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
@@ -9,11 +13,13 @@
 <?php
 	require("class/queue-database-construction.php");
 	$construction = (new QueueDatabaseConstruction());
-	$construction->buildQueueForm();
+	if(!isset($_COOKIE["HentaiQueue"]) || $_COOKIE["HentaiQueue"] != "pervert"){
+		$construction->buildPassForm();
+	}
+	else{			
+		$construction->buildQueueForm();
+	}
 ?>
-<hr />
-<p id="errorMsg">Input a comment and/or file</p>
-<input id="submit" type="submit" /></form>
 </body>
 <script src="form-script.js?1"></script>
 </html>
