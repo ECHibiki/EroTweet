@@ -9,22 +9,103 @@ A NOTE ON TWITTER ERRORS:
 require("class/oauth-random.php");
 class TwitterConnection{
 	private $oauth_data = array();
+	private $user_info = array();
+	
 	private $media_api = "https://upload.twitter.com/1.1/media/upload.json";
 	private $status_api = "https://api.twitter.com/1.1/statuses/update.json";
+	private $user_timeline_api = "https://api.twitter.com/1.1/statuses/user_timeline.json";
 	
 	function __construct(){
-		$this->getOAuthData();
+		$this->oauth_data = $this->getIniFile("settings/keys.ini");
+		$this->user_info = $this->getIniFile("settings/userinfo.ini");
 	}
 	
-	function getOAuthData(){
-		$settings = fopen("settings/keys.ini","r");
-		while(!feof($settings)){
-			$line = fgets($settings);
-			$key = substr($line,0,strpos($line, ":"));
+	function getIniFile($path){
+		$path_string = fopen($path,"r");
+		$return_array = array();
+		while(!feof($path_string)){
+			$line = fgets($path_string);
+			$key = substr($line,0,strpos($line, "="));
 					//eat last character
-			$value = trim(substr($line, strpos($line, ":")+1));
-			$this->oauth_data[$key] = $value;
+			$value = trim(substr($line, strpos($line, "=")+1));
+
+			$return_array[$key] = $value;
 		}
+		return $return_array;
+	}
+	
+
+	function getUserTimeline($since_id = 976628662446551043, $count = 5){
+								//add media id to the signature
+
+		$random_value = OauthRandom::randomAlphaNumet(32);
+		$method = "HMAC-SHA1";
+		$oauth_version = "1.0";
+		$timestamp = time();
+					
+
+		$get_fields  = "since_id=" . $since_id . "&count=" . $count . "&include_rts=true&exclude_replies=false&user_id=" . $this->user_info["User-ID"];
+		//$msg_len = (strlen($this->user_timeline_api . "?$get_fields"));  //GET REQUESTS HAVE NO DYNAMIC LENGTH
+		
+		$param_array = 	array( "user_id" => $this->user_info["User-ID"],
+								"since_id" => "$since_id",
+								"exclude_replies"=>"false",
+								"count" => "$count",
+								"include_rts" => "true",
+								"oauth_version" => "$oauth_version",
+								"oauth_nonce"=>"$random_value",
+								"oauth_token"=> $this->oauth_data["oauth_token"],
+								"oauth_timestamp" => "$timestamp",
+								"oauth_consumer_key" => $this->oauth_data["oauth_consumer_key"],
+								"oauth_signature_method" => "$method"
+								);
+		
+		$signature = rawurlencode($this->generateSignature(array(
+											"base_url" => $this->user_timeline_api,
+											"request_method" => "GET"), 
+											$param_array,
+										array(
+											"consumer_secret" => $this->oauth_data["consumer_secret"],
+											"oauth_secret" => $this->oauth_data["oauth_secret"]
+											)
+										));
+
+		$param_array["oauth_signature"] = $signature;		
+		$header_data = array("Accept: */*", "Connection: close","User-Agent: VerniyXYZ-CURL" ,
+					"Content-Type: application/x-www-form-urlencoded;charset=UTF-8", "Host: api.twitter.com",
+					$this->buildAuthorizationString($param_array));	
+					
+		//request
+		echo "<hr/>";
+		$curl = curl_init($this->user_timeline_api . "?$get_fields");
+		curl_setopt($curl, CURLOPT_HTTPGET, 1);
+		curl_setopt($curl, CURLOPT_HTTPHEADER, $header_data);
+		curl_setopt($curl,  CURLOPT_HEADER, false);
+		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($curl, CURLOPT_SSL_VERIFYPEER , false);
+		
+		echo "<br/>-- Fin -- <hr/>";
+		$content = curl_exec($curl);
+		echo ( $content); 
+						
+	}
+	
+	
+	function buildAuthorizationString($parameters){
+		$authorization_string = 'Authorization: OAuth ';
+		
+		ksort($parameters);
+		$is_first_join = false;
+		foreach($parameters as $key => $value){
+			if(!$is_first_join){
+				$is_first_join = true;
+				$authorization_string .= $key  . '="' . $value . '"';
+			} 
+			else{
+				$authorization_string .= "," . $key . '="' . $value . '"';
+			}
+		}
+		return $authorization_string;
 	}
 	
 	function makeTweet($comment, $file_arr){
@@ -46,12 +127,7 @@ class TwitterConnection{
 		$oauth_version = "1.0";
 		$timestamp = time();
 
-
-						//add media id to the signature
-		$signature = rawurlencode($this->generateSignature(array(
-											"base_url" => $this->status_api,
-											"request_method" => $request_method),
-											array("include_entities" => "$include_entities",
+		$param_array = array("include_entities" => "$include_entities",
 											"status" => "$encode_tweet_msg",
 											"media_ids" => "$image_string",
 											"oauth_version" => "$oauth_version",
@@ -60,20 +136,24 @@ class TwitterConnection{
 											"oauth_timestamp" => "$timestamp",
 											"oauth_consumer_key" => $this->oauth_data["oauth_consumer_key"],
 											"oauth_signature_method" => "$method"
-											),
+											);
+		
+						//add media id to the signature
+		$signature = rawurlencode($this->generateSignature(array(
+											"base_url" => $this->status_api,
+											"request_method" => $request_method),
+											$param_array,
 										array(
 											"consumer_secret" => $this->oauth_data["consumer_secret"],
 											"oauth_secret" => $this->oauth_data["oauth_secret"]
 											)
 		));
 
+		$param_array["oauth_signature"] = $signature;		
 		$header_data = array("Accept: */*", "Connection: close","User-Agent: VerniyXYZ-CURL" ,
-													"Content-Type: application/x-www-form-urlencoded;charset=UTF-8", 
-													"Content-Length: $msg_len", "Host: api.twitter.com",
-													
-		'Authorization: OAuth oauth_consumer_key="' . $this->oauth_data["oauth_consumer_key"] .'",oauth_nonce="' . $random_value . '",oauth_signature="' .	$signature 
-		. '",oauth_signature_method="' .$method . '"' . ',oauth_timestamp="' . $timestamp . '",oauth_token="' . $this->oauth_data["oauth_token"] . '",oauth_version="' . $oauth_version . '"'										
-															);	
+					"Content-Type: application/x-www-form-urlencoded;charset=UTF-8", 
+					"Content-Length: $msg_len", "Host: api.twitter.com",
+					$this->buildAuthorizationString($param_array));	
 												
 		//request
 		echo "<hr/>";
@@ -229,7 +309,7 @@ class TwitterConnection{
 		curl_setopt($curl, CURLOPT_POST, 1);
 		curl_setopt($curl, CURLOPT_HTTPHEADER, $header_data);
 		curl_setopt($curl, CURLOPT_POSTFIELDS, $postfield_string);
-		curl_setopt($curl, CURLOPT_HEADER  , true);  // we want headers
+		curl_setopt($curl, CURLOPT_HEADER  , true);  
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 		$http_response = curl_exec($curl);
 		echo $http_response;
@@ -271,7 +351,7 @@ class TwitterConnection{
 		curl_setopt($curl, CURLOPT_POST, 1);
 		curl_setopt($curl, CURLOPT_HTTPHEADER, $header_data);
 		curl_setopt($curl, CURLOPT_POSTFIELDS, $postfield_string);	
-		curl_setopt($curl, CURLOPT_HEADER  , true);  // we want headers
+		curl_setopt($curl, CURLOPT_HEADER  , true);  
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 		$http_response = curl_exec($curl);
 		echo $http_response;			
@@ -282,8 +362,7 @@ class TwitterConnection{
 		$request_method = strtoupper($request_arr["request_method"]);
 		$base_url = rawurlencode($request_arr["base_url"]);
 	
-		ksort($paramater_arr);
-
+		ksort($paramater_arr);		
 		if(isset($paramater_arr["media"])) $paramater_arr["media"] = rawurlencode($paramater_arr["media"]);
 		$paramter_string = $this->buildOAuthParamaterString($paramater_arr); 	
 

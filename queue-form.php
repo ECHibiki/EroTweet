@@ -1,9 +1,9 @@
 <?php
+	session_start();
 	if($_POST["name"] == "ecorvid" && $_POST["pass"] == "notsecret"){
-		setcookie("HentaiQueue", "pervert");
+		 $_SESSION["HentaiQueue"] = "pervert";
 		header("Location: /twitter/");
 	} 
-	else if(isset($_POST["name"]) && isset($_POST["password"])) setcookie("HentaiQueue", "good samaritin");
 	
 ?>
 
@@ -18,7 +18,7 @@
 <?php
 	require("class/queue-database-construction.php");
 	$construction = (new QueueDatabaseConstruction());
-	if(!isset($_COOKIE["HentaiQueue"]) || $_COOKIE["HentaiQueue"] != "pervert"){
+	if($_SESSION["HentaiQueue"] != "pervert"){
 		$construction->buildPassForm();
 	}
 	else{			

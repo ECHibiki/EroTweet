@@ -13,8 +13,8 @@ class QueueDatabaseConstruction{
 		$sql_ini = fopen("settings/sql.ini", "r");
 		while(!feof($sql_ini)){
 			$line = fgets($sql_ini);
-			$key = substr($line, 0, strpos($line, ":"));
-			$value = trim(substr($line, strpos($line, ":")+1));
+			$key = substr($line, 0, strpos($line, "="));
+			$value = trim(substr($line, strpos($line, "=")+1));
 			$this->sql_data[$key] = $value;
 		}
 		if($connect == true) $this->connectToDatabase();
@@ -42,7 +42,7 @@ Artist: @<Artist>
 @HentaiAdvisor @Hentai_Retweet @DoujinsApp @waifu_trash @HentaiTeengirl @Hentai_Babess
 <Specific Tagging>
 #hentai  #hentaicommunity #nsfw  #lewd #porn #animeleft #hibiki #verniy
-&&Me On The Left&&';
+#Me_On_The_Left';
 			
 		echo '</textarea>
 			<p id="CharacterCount"></p>
