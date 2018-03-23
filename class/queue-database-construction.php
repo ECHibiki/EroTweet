@@ -37,7 +37,7 @@ class QueueDatabaseConstruction{
 			<textarea id="Comment" name="comment" rows="10" cols="60">';
 			
 		echo '
-<Comment String>
+<Comment String❤>
 Artist: @<Artist>
 @HentaiAdvisor @Hentai_Retweet @DoujinsApp @waifu_trash @HentaiTeengirl @Hentai_Babess
 <Specific Tagging>
