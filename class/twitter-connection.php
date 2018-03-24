@@ -6,18 +6,29 @@ A NOTE ON TWITTER ERRORS:
 	ERROR 32 MEANS YOU GOT THE VALUES WRONG
 */
 
-require("class/oauth-random.php");
+function removeExtraSymbols($string){
+	$string = str_replace(".", "a", $string);
+	$string = str_replace("%", "b", $string);
+	$string = str_replace("/", "c", $string);
+	return $string;
+}
+
+require_once("class/oauth-random.php");
+require_once("class/queue-database-construction.php");
 class TwitterConnection{
 	private $oauth_data = array();
 	private $user_info = array();
+	private $post_properties = array();
 	
 	private $media_api = "https://upload.twitter.com/1.1/media/upload.json";
 	private $status_api = "https://api.twitter.com/1.1/statuses/update.json";
-	private $user_timeline_api = "https://api.twitter.com/1.1/statuses/user_timeline.json";
+	private $user_timeline_api = "https://api.twitter.com/1.1/statuses/user_timeline.json";	
+	private $mention_timeline_api = "https://api.twitter.com/1.1/statuses/mentions_timeline.json";
 	
 	function __construct(){
-		$this->oauth_data = $this->getIniFile("settings/keys.ini");
-		$this->user_info = $this->getIniFile("settings/userinfo.ini");
+		$this->oauth_data = 	 $this->getIniFile("settings/keys.ini");
+		$this->user_info = 		 $this->getIniFile("settings/userinfo.ini");
+		$this->post_properties = $this->getIniFile("settings/postproperties.ini");
 	}
 	
 	function getIniFile($path){
@@ -34,24 +45,164 @@ class TwitterConnection{
 		return $return_array;
 	}
 	
+	function retrieveTimeline(){
+		$highest_post_id = -1;
+		
+		$timeline_arr = $this->getUserTimeline($this->post_properties["TopPostNo"]);
+		$timeline_database_arr = array();
 
-	function getUserTimeline($since_id = 976628662446551043, $count = 5){
-								//add media id to the signature
+		if($timeline_arr["errors"][0]["code"] ==  null && sizeof($timeline_arr) != 0){
+			foreach ($timeline_arr as $timeline_item){
+				$post_id = $timeline_item["id"];
+				$post_text = $timeline_item["text"];
+				$post_image_string = $this->grabTwitterImage($timeline_item);
+				array_push($timeline_database_arr, [$post_id, $post_text, $post_image_string]);
+				
+				$highest_post_id = $post_id > $highest_post_id ? $post_id : $highest_post_id;
+			}			
+		}
+		else echo $timeline_arr["errors"][0]["code"] . "Tim<br/>";
 
+		echo "<hr>"; //From the post ID try and find any replies
+					
+		$reply_arr = $this->getTweetReplies($this->post_properties["TopPostNo"]);	
+		$reply_arr_container = array();
+			
+		if($reply_arr["errors"][0]["code"] ==  null && sizeof($reply_arr) != 0){
+			$reply_id = 0;
+			foreach($reply_arr as $reply_item){
+				$reply_id = $reply_item["id"];
+				$reply_text = $reply_item["text"];
+				$reply_image_string =  $this->grabTwitterImage($reply_item);
+				$responding_to_id = $reply_item['in_reply_to_status_id'];
+				echo "$lowest_post_id -- $responding_to_id<hr/>";
+				array_push($reply_arr_container, [$reply_id, $reply_text, $reply_image_string, $responding_to_id]);
+				
+				$highest_post_id = $reply_id > $highest_post_id ? $reply_id : $highest_post_id;
+			}
+		}
+		else echo $reply_arr["errors"][0]["code"] . "Rep<br/>";
+		
+		if(sizeof($timeline_database_arr) + sizeof($reply_arr_container) == 0){
+			echo "No Updates<hr/>";
+			return;
+		} 
+		else{
+			$postfile = fopen("settings/postproperties.ini", "w");
+			echo "TopPostNo=$highest_post_id<br/>";
+			fwrite($postfile, "TopPostNo=$highest_post_id");
+		}
+		
+		$combined_database_arr = array_merge ($timeline_database_arr, $reply_arr_container);
+		$database_connection = new QueueDatabaseConstruction(true);
+		
+			echo "<hr>";
+			
+		$this->recursiveEchoJson($combined_database_arr,0);
+				echo "<pre>";
+		if(sizeof($timeline_database_arr) != 0){
+			$this->addTimelineTweetsToDatabase($combined_database_arr, $database_connection);
+		} 
+			echo "</pre>";
+			
+		$database_connection = null;
+	}
+	
+	function deleteExpiredEntries(){
+		$database_connection = new QueueDatabaseConstruction(true);
+		
+		$threads = $database_connection->getThreads();
+		$thread_count = 0;
+		foreach($threads as $thread){
+			$thread_count++;
+			if($thread_count > 2){
+				var_dump ($thread);
+				$database_connection->deleteFromUnprocessedImageString($thread["ImageURL"]);
+				$database_connection->deleteThread($thread[0]);//0 is the most relevant PostID
+			}
+		}
+		$database_connection = null;
+	}
+	
+	
+	function endConnection(){
+		$this->database_connection = null;
+	}
+	
+	function grabTwitterImage($tweet_array){
+		$first_join = false;
+		$image_url_string = null;
+		echo "<hr/>";
+		if($tweet_array["extended_entities"] != null){
+			foreach($tweet_array["extended_entities"] ["media"] as $entity){
+				$filename = "images/" . (microtime(true) * 10000) . (rand(0,1000)) 
+								. removeExtraSymbols($entity["media_url_https"][rawurlencode(rand(0, strlen($entity["media_url_https"])))]) . ".jpg";
+				$this->uploadMedia($filename, $entity["media_url_https"]);
+				if(!$first_join){
+					$first_join = true;
+					$image_url_string = rawurlencode($filename);
+				}
+				else $image_url_string .= "," . rawurlencode($filename);
+			}
+		}	
+
+		return $image_url_string;
+	}
+
+	function recursiveEchoJson($json, $indents){
+		echo "<pre>";
+		foreach($json as $key => $attribute){
+			if(is_array ($attribute)){
+				$this->makeIndents($indents);
+				echo "$key {\n";
+				
+				$this->recursiveEchoJson($attribute, ++$indents);
+				
+				$this->makeIndents(--$indents);
+				echo "}\n";
+			}
+			else{
+				$this->makeIndents($indents);
+				echo "$key = $attribute \n";
+			}
+		}
+		echo "</pre>";
+		if($indents == 1) echo "<hr/>";
+	}
+	
+	function makeIndents($indent_count){
+		for ($i = 0; $i < $indent_count ; $i++){	echo "\t";	}
+	}
+	
+	function addTimelineTweetsToDatabase($timeline_database_arr, $database_connection){
+		var_dump($timeline_database_arr);
+		foreach($timeline_database_arr as $key => $timeline_item){
+				$database_connection->addToTable("Tweet",  array("PostID"=>$timeline_item[0],
+							"PostText"=> $timeline_item[1], "ImageURL"=> $timeline_item[2]));
+				if($timeline_item[3] !== null)
+					$database_connection->addToTable("Response",  array("PostID"=>$timeline_item[0], "RepliesTo"=>$timeline_item[3]));
+			}
+	}
+	function uploadMedia($filename,$url){
+		file_put_contents($filename, fopen($url, 'r'));
+	}
+	
+	function getUserTimeline($since_id = 976628662446551043, $count = 100){
+		
 		$random_value = OauthRandom::randomAlphaNumet(32);
 		$method = "HMAC-SHA1";
 		$oauth_version = "1.0";
 		$timestamp = time();
-					
+		$reply_exclude = "false";
 
-		$get_fields  = "since_id=" . $since_id . "&count=" . $count . "&include_rts=true&exclude_replies=false&user_id=" . $this->user_info["User-ID"];
+		$get_fields  = "since_id=" . $since_id . "&count=" . $count . "&include_rts=false&exclude_replies=$reply_exclude&user_id=" . $this->user_info["User-ID"];
 		//$msg_len = (strlen($this->user_timeline_api . "?$get_fields"));  //GET REQUESTS HAVE NO DYNAMIC LENGTH
 		
 		$param_array = 	array( "user_id" => $this->user_info["User-ID"],
 								"since_id" => "$since_id",
-								"exclude_replies"=>"false",
+								"exclude_replies"=>"$reply_exclude",
 								"count" => "$count",
-								"include_rts" => "true",
+								"include_rts" => "false",
 								"oauth_version" => "$oauth_version",
 								"oauth_nonce"=>"$random_value",
 								"oauth_token"=> $this->oauth_data["oauth_token"],
@@ -86,9 +237,59 @@ class TwitterConnection{
 		
 		echo "<br/>-- Fin -- <hr/>";
 		$content = curl_exec($curl);
-		echo ( $content); 
+		return json_decode(($content), true); 
 						
 	}
+	
+		
+	function getTweetReplies($current_post_id, $max_post_id = -1){
+		$random_value = OauthRandom::randomAlphaNumet(32);
+		$method = "HMAC-SHA1";
+		$oauth_version = "1.0";
+		$timestamp = time();
+					
+
+		$get_fields  = "since_id=" . $current_post_id;
+		$param_array = 	array(
+								"since_id" => "$current_post_id",
+								"oauth_version" => "$oauth_version",
+								"oauth_nonce"=>"$random_value",
+								"oauth_token"=> $this->oauth_data["oauth_token"],
+								"oauth_timestamp" => "$timestamp",
+								"oauth_consumer_key" => $this->oauth_data["oauth_consumer_key"],
+								"oauth_signature_method" => "$method"
+								);
+		if($max_post_id > 0){
+			$get_fields .= $max_post_id > 0 ? "&max_id=" . $max_post_id : "";
+			$param_array["max_id"] = "$max_post_id";
+		}
+
+		$signature = rawurlencode($this->generateSignature(array(
+											"base_url" => $this->mention_timeline_api,
+											"request_method" => "GET"), 
+											$param_array,
+										array(
+											"consumer_secret" => $this->oauth_data["consumer_secret"],
+											"oauth_secret" => $this->oauth_data["oauth_secret"]
+											)
+										));
+		$param_array["oauth_signature"] = $signature;		
+		$header_data = array("Accept: */*", "Connection: close","User-Agent: VerniyXYZ-CURL" ,
+					"Content-Type: application/x-www-form-urlencoded;charset=UTF-8", "Host: api.twitter.com",
+					$this->buildAuthorizationString($param_array));	
+					
+		//request
+		$curl = curl_init($this->mention_timeline_api . "?$get_fields");
+		curl_setopt($curl, CURLOPT_HTTPGET, 1);
+		curl_setopt($curl, CURLOPT_HTTPHEADER, $header_data);
+		curl_setopt($curl,  CURLOPT_HEADER, false);
+		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($curl, CURLOPT_SSL_VERIFYPEER , false);
+		$content = curl_exec($curl);
+		return json_decode(($content), true); 		
+	}
+	
+		
 	
 	
 	function buildAuthorizationString($parameters){
@@ -164,7 +365,8 @@ class TwitterConnection{
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 		echo "<br/>-- Fin -- <hr/>";
 		$content = curl_exec($curl);
-		echo $content;
+		var_dump (json_decode($content, true));
+		return json_decode($content, true);
 	}
 	
 	function addTweetMedia($file_arr){

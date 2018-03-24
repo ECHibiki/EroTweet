@@ -1,21 +1,24 @@
 <?php //When called, make a request to pull a tweet from an SQL table 
-	require("class/queue-database-construction.php");
-	$construction = new QueueDatabaseConstruction(true);
+	require_once("class/queue-database-construction.php");
+	$construction = new QueueDatabaseConstruction();
 	//row array
 	$oldest = $construction->retrieveOldestEntry();
 		echo "<br/>" . var_dump($oldest);
 	echo "<hr/>";
-	
+
 	//ob_start();
-	require("class/twitter-connection.php");
+	require_once("class/twitter-connection.php");
 	//ob_end_clean();
 	$connection = new TwitterConnection();
-	$connection->makeTweet($oldest["Comment"], explode(",", $oldest["ImageLocation"]));
-	
-	echo "<hr/>";
-	
-	
-	$construction->deleteOldestEntry($oldest);
+	$response = $connection->makeTweet($oldest[0]["Comment"], explode(",", $oldest[0]["ImageLocation"]));
+echo "</pre>";
 
-	echo "Found, Added and Deleted<br/>";
+	if($response["created_at"] == null){
+		echo "post unsuccessful";
+		return;
+	} 
+	else {
+		$construction->deleteOldestEntry($oldest);
+		echo "Found, Added and Deleted<br/>";
+	}
 ?>

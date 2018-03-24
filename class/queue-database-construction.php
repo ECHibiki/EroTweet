@@ -9,7 +9,10 @@ class QueueDatabaseConstruction{
 	public $comment_error = false;
 	public $delete_status = false;
 	
-	function __construct($connect = false){
+	public $alphabet = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p",
+"q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
+	
+	function __construct(){
 		$sql_ini = fopen("settings/sql.ini", "r");
 		while(!feof($sql_ini)){
 			$line = fgets($sql_ini);
@@ -17,17 +20,89 @@ class QueueDatabaseConstruction{
 			$value = trim(substr($line, strpos($line, "=")+1));
 			$this->sql_data[$key] = $value;
 		}
-		if($connect == true) $this->connectToDatabase();
+		$this->connectToDatabase();
 	}
 	
 	function connectToDatabase(){
-		$this->connection = new mysqli($this->sql_data["connection"], $this->sql_data["user"],
-									$this->sql_data["pass"], $this->sql_data["database"]);
-		if (!$this->connection) {
-			echo "Error: Unable to connect to MySQL." . PHP_EOL;
-			echo "Debugging errno: " . mysqli_connect_errno() . PHP_EOL;
-			echo "Debugging error: " . mysqli_connect_error() . PHP_EOL;
-			exit;
+		
+		try {
+            $this->connection = new PDO ("mysql:dbname=" . $this->sql_data["database"] . ";host=" . $this->sql_data["connection"],
+												$this->sql_data["user"], 	$this->sql_data["pass"]);
+			$this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        } catch (PDOException $e) {
+            $this->logsys .= "Failed to get DB handle: " . $e->getMessage() . "\n";
+        }
+	}
+	
+	
+	function getConnection(){
+		return $this->connection;
+	}
+	function addToTable($tablename, $paramaters){
+		$param_len = sizeof($paramaters);
+		$bind_string = "";
+		$table_string= "";
+		$first_comma = false;
+		foreach($paramaters as $key => $param){
+			if(!$first_comma){
+			$bind_string = ":$key";
+			$table_string = "`$key`";
+			$first_comma = true;
+			}
+			else{
+				$bind_string .= ",:$key";
+				$table_string .= ",`$key`";
+			} 
+		}
+		$statement = $this->connection->prepare("INSERT INTO `".$this->sql_data["database"] ."`.`$tablename`($table_string) VALUES(" . $bind_string . ")");
+	
+		$index = 0;
+		foreach($paramaters as $key => $param){
+			$success =	$statement->bindParam(":" . $key , $paramaters[$key]);
+			$index++;
+		}
+		try{
+			$statement->execute();
+		}catch(Exception  $e){
+		   echo "<strong>" . $e->getMessage() . "</strong><br/>";
+		}	
+	}
+	
+	//Get the count of all items that are not unverified and not replies
+	function getThreads(){
+		$statement = $this->connection->prepare("SELECT * FROM `Tweet` 
+										LEFT OUTER JOIN `Response` ON `Response`.`PostID` = `Tweet`.`PostID` 
+										LEFT OUTER JOIN `Unverified` ON `Unverified`.`PostID` = `Tweet`.`PostID` 
+										WHERE `Unverified`.`PostID` IS NULL AND `Response`.`PostID` IS NULL
+										ORDER BY Tweet.PostID DESC");
+		try{	
+			$statement->execute();
+			$threads = $statement->fetchAll();
+		}catch(Exception  $e){
+		   echo "<strong>" . $e->getMessage() . "</strong><br/>";
+		}					
+		return $threads;
+	}
+	
+	function deleteThread($postID){
+		$postID_for_reference = $postID;
+		$statement = $this->connection->prepare("DELETE FROM `" . $this->sql_data["database"] ."`.`Tweet` WHERE `PostID` = :PostID");
+		$statement->bindParam(":PostID", $postID_for_reference);
+		try{
+			$response = $statement->execute();
+		}catch(Exception  $e){
+		   echo "<strong>" . $e->getMessage() . "</strong><br/>";
+		}	
+		return $response;
+	}
+	
+	function deleteFromUnprocessedImageString($image_path_uprocessed){
+		if($image_path_uprocessed === null) return;
+		$image_path_uprocessed_arr = explode(",", $image_path_uprocessed);
+		foreach($image_path_uprocessed_arr as $unprocessed_path){
+			$path = rawurldecode($unprocessed_path);
+			unlink ($path);
 		}
 	}
 	
@@ -41,7 +116,7 @@ class QueueDatabaseConstruction{
 Artist: @<Artist>
 @HentaiAdvisor @Hentai_Retweet @DoujinsApp @waifu_trash @HentaiTeengirl @Hentai_Babess
 <Specific Tagging>
-#hentai  #hentaicommunity #nsfw  #lewd #porn #animeleft #hibiki #verniy
+#hentai #hentaileft #hentaicommunity #nsfw  #lewd #porn #hibiki #verniy
 #Me_On_The_Left';
 			
 		echo '</textarea>
@@ -82,7 +157,8 @@ Artist: @<Artist>
 		$first = true;
 		for($file = 1; $file <= 4; $file++){
 			$upload_location = "images/" . basename($files["file" . (string)$file]["name"]);
-			if($files["file" . (string)$file]["error"] == 0 && $upload_location !== "images/" && $files["file" . (string)$file]["size"] < $FILE_MAX){
+			
+			if(!file_exists($upload_location) && $files["file" . (string)$file]["error"] == 0 && $upload_location !== "images/" && $files["file" . (string)$file]["size"] < $FILE_MAX){
 				$file_arr[$file - 1] = $upload_location;
 				if($first){
 					$file_string .= rawurlencode($upload_location);
@@ -124,6 +200,10 @@ Artist: @<Artist>
 					echo "file $file, Empty<br/>";
 					$this->die_state[$file - 1] = false;
 				}
+				else if(file_exists($upload_location)) {
+					echo "file " . (string)$file .", Duplicate<br/>";
+					$this->die_state[$file - 1] = true;
+				}
 				else{
 					echo "file $file, Unkown Upload Error " . $files["file" . (string)$file]["error"] . "<br/>";	
 					$this->die_state[$file - 1] = true;
@@ -131,67 +211,84 @@ Artist: @<Artist>
 			}
 		}
 		return $file_string;
-		var_dump($file_arr);
 	}
 	
-	function addToDatabase($file_string, $comment){
-		if($file_string == "" AND $comment == ""){
-			echo "Empty form<br/>";
-				return; 
-		} 
-		$insert_query = $this->connection->prepare("INSERT INTO TweetQueue(PostNo,Comment,ImageLocation) VALUES ('',?,?)");
-		$file_path = $file_string;
-		if (!$insert_query->bind_param("ss", $comment, $file_path)){
-			echo "Prepared Statement Error<br/>";
-
-		}
-
-		if (!$insert_query->execute()){
-			echo "Execution Error " . $insert_query->errno . "  " . $insert_query->error;
-		}
-		else{
-			echo "Added to post queue<br/>";
-		}
-	}
-
-	function displayTabularDatabase(){
+	function displayTabularDatabase($table_name, $display_images = false){
 		echo "<br/>Displaying All entries(lower number means posted sooner): <br/>";
-		$result = $this->connection->query("Select * from TweetQueue ORDER BY PostNo DESC;");
-
-		echo "<table border='1'>";
-		for($row = $result->num_rows - 1; $row >= 0 ; $row--){
+		$statement = $this->connection->query("Select * from ". $table_name . " ORDER BY PostNo DESC;");
+		$statement->execute();
+		$result_arr = $statement->fetchAll();
+		
+		foreach($result_arr[0] as $key=>$head){
+			if(is_numeric ($key)) unset($result_arr[0][$key]);
+		}
+		
+		echo "<table border='1'><tr>";
+		foreach($result_arr[0] as $key=>$head_item)
+			echo "<th>$key</th>";
+		echo "</tr>";	
+		
+		
+		
+		for($row = sizeof($result_arr) - 1; $row >= 0 ; $row--){
 			echo"<tr>";
-			$tupple = $result->fetch_row();
-			foreach($tupple as $col){
-				echo "<td>$col</td>";
+			$tupple = $result_arr[$row];
+			$column = 0;
+			foreach($tupple as $key=>$col){
+				if(is_numeric ($key)) unset($result_arr[0][$key]);
+				else {
+					if($column == 2 && $display_images){
+						$img_arr = explode(",", $col);
+						foreach($img_arr as $img){
+							$img = urldecode($img);
+							$img_ext = pathinfo($img, PATHINFO_EXTENSION);
+							if(strcmp($img_ext, "png") == 0 || strcmp($img_ext, "jpg")  == 0|| strcmp($img_ext, "gif") == 0) 
+								echo "<td>" . $this->createImageNode($img) . "</td>";
+							else
+								echo "<td>" . $this->createVideoNode($img) . "</td>";
+							
+						}
+					}
+					else{
+						if($key == "PostNo") echo "<td>$col - $row</td>";
+						else echo "<td>$col</td>";
+					}
+					$column++;
+				}
 			}
 			echo"</tr>";
 		}
 		echo "</table><hr/>";
 	}
 
+	function createImageNode($img_path){
+		return "<img src='$img_path' width='250px'/>";
+	}
+	function createVideoNode($vid_path){
+		return "<video src='$vid_path' autoplay='true' loop='true' width='250px'/>";
+	}
+
 	function retrieveOldestEntry(){
-		$retrieval_query = "SELECT * FROM TweetQueue ORDER BY PostNo ASC LIMIT 1";
+		echo "<pre>";
+		$retrieval_query = $this->connection->prepare("SELECT * FROM TweetQueue ORDER BY PostNo ASC LIMIT 1");
 
-		$most_recent = $this->connection->query($retrieval_query);
-		print_r($most_recent); 
-		echo "\n";
+		$most_recent = $retrieval_query->execute();
 
-		$data_arr = $most_recent->fetch_assoc();
+		$data_arr = $retrieval_query->fetchAll();
 
 		print_r($data_arr);
 
-		$file_arr  = explode(",", rawurldecode($data_arr["ImageLocation"]));
-			
-		echo "Comm: " . $data_arr["Comment"] . " - ILoc: ";
-		print_r($file_arr);
+		$file_arr  = explode(",", ($data_arr[0]["ImageLocation"] ));
 		return $data_arr;
 	}
 	
 	function deleteOldestEntry($oldest){
-		echo $oldest;
-		$delete_querry = $this->connection->prepare("DELETE FROM TweetQueue WHERE PostNo=?;");
-		$delete_querry->bind_param("s", $oldest["PostNo"]);
+		print_r($oldest);
+
+		$this->deleteFromUnprocessedImageString($oldest[0]["ImageLocation"]);
+		
+		$delete_querry = $this->connection->prepare("DELETE FROM TweetQueue WHERE PostNo=:PostNo;");
+		$delete_querry->bindParam(":PostNo", $oldest[0]["PostNo"]);
 		$this->delete_status = $delete_querry->execute();
 		
 		if($this->delete_status !== 1){

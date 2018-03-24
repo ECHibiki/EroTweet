@@ -9,8 +9,7 @@
 
 <?php
 	require("class/queue-database-construction.php");
-
-	$construction = new QueueDatabaseConstruction(true);
+	$construction = new QueueDatabaseConstruction();
 
 	$comment = $construction->checkCommentValid($_POST["comment"]);
 
@@ -23,10 +22,9 @@
 	if($comment_error) $do_not_submit = true;
 
 	if($do_not_submit) echo "Error in Tweet. Aborting addition to queue.<br/>";
-	else $construction->addToDatabase($file_string, $comment);
+	else $construction->addToTable("TweetQueue", ["ImageLocation" => $file_string, "Comment"=>$comment]);
 
-	$construction->displayTabularDatabase();
-
+	$construction->displayTabularDatabase("TweetQueue", true);
 ?>
 
 </div>

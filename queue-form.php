@@ -4,7 +4,6 @@
 		 $_SESSION["HentaiQueue"] = "pervert";
 		header("Location: /twitter/");
 	} 
-	
 ?>
 
 <html>
@@ -13,7 +12,7 @@
 	<base href="http://verniy.xyz/twitter/" />
 	<title>Submit to @VerniyEro</title>
 </head>
-<body>
+<body style='margin: 2% 5%;'>
 <h1>Submit to <a href="https://twitter.com/VerniyEro/">@VerniyEro</a></h1>
 <?php
 	require("class/queue-database-construction.php");
@@ -23,6 +22,7 @@
 	}
 	else{			
 		$construction->buildQueueForm();
+		$construction->displayTabularDatabase("TweetQueue", true);
 	}
 ?>
 </body>
