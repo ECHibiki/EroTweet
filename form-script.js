@@ -7,6 +7,8 @@ var textarea = document.getElementById('Comment');
 var submit = document.getElementById('submit');
 submit.setAttribute('disabled','');
 
+var CHARACTER_LIMIT =  280;
+
 function checkIfSubmitToBeDisabled(){
 	//check all file fontainers
 	for(var i = 1 ; i <= 4; i++){
@@ -19,13 +21,13 @@ function checkIfSubmitToBeDisabled(){
 		}
 		else{
 			var length = textarea.value.length;
-			if(length > 500){
+			if(length > CHARACTER_LIMIT){
 				characterCountColoring();
 				return;
 			}
 			else{
 				submit.removeAttribute('disabled');
-				eerror_msg_text.nodeValue = "Click to submit";
+				error_msg_text.nodeValue = "Click to submit";
 				return;
 			}
 		}
@@ -39,13 +41,13 @@ function characterCountColoring(){
 		submit.setAttribute('disabled','');
 		error_msg_text.nodeValue = "Input a comment and/or file";
 	}
-	else if(length > 500){
+	else if(length > CHARACTER_LIMIT){
 		red = 255; blue = 0; green = 0;
 		submit.setAttribute('disabled','');
-		error_msg_text.nodeValue = "Character count exceeded(>500)";
+		error_msg_text.nodeValue = "Character count exceeded(>"+ CHARACTER_LIMIT + ")";
 	}
 	else{
-		red = Math.ceil(length/500 * 180);
+		red = Math.ceil(length/CHARACTER_LIMIT * 180);
 		submit.removeAttribute('disabled');
 		error_msg.innerHTML = "Click to submit";
 	}

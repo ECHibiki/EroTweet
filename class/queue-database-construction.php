@@ -39,6 +39,16 @@ class QueueDatabaseConstruction{
 	function getConnection(){
 		return $this->connection;
 	}
+	function deletePost($table, $refining_paramater, $bind_val){
+		$statement = $this->connection->prepare("DELETE FROM `$table` WHERE `$table`.`$refining_paramater` = :bindval");
+		$statement->bindParam(":bindval", $bind_val);
+		try{
+			$response = $statement->execute();
+		}catch(Exception  $e){
+		   echo "<strong>" . $e->getMessage() . "</strong><br/>";
+		}	
+	}
+	
 	function addToTable($tablename, $paramaters){
 		$param_len = sizeof($paramaters);
 		$bind_string = "";
@@ -65,7 +75,7 @@ class QueueDatabaseConstruction{
 		try{
 			$statement->execute();
 		}catch(Exception  $e){
-		   echo "<strong>" . $e->getMessage() . "</strong><br/>";
+		  // echo "<strong>" . $e->getMessage() . "</strong><br/>";
 		}	
 	}
 	
@@ -106,7 +116,7 @@ class QueueDatabaseConstruction{
 		}
 	}
 	
-	function buildQueueForm(){
+	function buildQueueForm($submission_cookie = 0){
 		echo'<form action="add-to-queue.php" enctype="multipart/form-data" method="POST" target="_self">
 			<label>Comment:</label><br />
 			<textarea id="Comment" name="comment" rows="10" cols="60">';
@@ -142,11 +152,10 @@ Artist: @<Artist>
 		$COMMENT_MAX = 500;
 
 		if(mb_strlen($tweet_comment) > $COMMENT_MAX){
-			echo "Comment too long[Server]<br/>";
-			$this->comment_error = true;
+			$this->comment_error = 0;
 			return "";
 		}
-		$this->comment_error = false;
+		$this->comment_error = 1;
 		return $tweet_comment;
 	}
 	
@@ -168,97 +177,111 @@ Artist: @<Artist>
 					$file_string .=  "," . rawurlencode($upload_location);
 				}
 				if (move_uploaded_file($files["file" . (string)$file]["tmp_name"], $upload_location )) {
-					echo "File: $file  was valid.<br/>";
+					//echo "File: $file  was valid.<br/>";
 				} 
 				else {
-					echo "File: $file_location " . " Detected an error <br/>";
+					//echo "File: $file_location " . " Detected an error <br/>";
 					$file_arr[$file - 1] = "0";
 					$die_state[$file - 1] = true;
 					continue;
 				}
-				$die_state[$file - 1] = false;
+				$this->die_state[$file - 1] = -1;
 			}
 			else{
-				$file_arr[$file - 1] = 0;
 				if($files["file" . (string)$file]["size"] >= $FILE_MAX){
-					echo "file" . (string)$file ." Over filesize limit-Server<br/>";
-					$this->die_state[$file - 1] = true;
+					//echo "file" . (string)$file ." Over filesize limit-Server<br/>";
+					$this->die_state[$file - 1] = 0;
 				}
 				else if($files["file" . (string)$file]["error"] == 1){
-					echo "file $file, PHP err " . $files["file" . (string)$file]["error"] . " <br/>";
-					$this->die_state[$file - 1] = true;
+					//echo "file $file, PHP err " . $files["file" . (string)$file]["error"] . " <br/>";
+					$this->die_state[$file - 1] = 1;
 				}
 				else if($files["file" . (string)$file]["error"] == 2){
-					echo "file $file, Over size limit-Client<br/>";
-					$this->die_state[$file - 1] = true;
+					//echo "file $file, Over size limit-Client<br/>";
+					$this->die_state[$file - 1] = 2;
 				}
 				else if($files["file" . (string)$file]["error"] == 3){
-					echo "file $file, The uploaded file was only partially uploaded. <br/>";
-					$this->die_state[$file - 1] = true;
+					//echo "file $file, The uploaded file was only partially uploaded. <br/>";
+					$this->die_state[$file - 1] = 3;
 				}
 				else if($files["file" . (string)$file]["error"] == 4){
-					echo "file $file, Empty<br/>";
-					$this->die_state[$file - 1] = false;
+					//echo "file $file, Empty<br/>";
+					$this->die_state[$file - 1] = 4;
 				}
 				else if(file_exists($upload_location)) {
-					echo "file " . (string)$file .", Duplicate<br/>";
-					$this->die_state[$file - 1] = true;
+					//echo "file " . (string)$file .", Duplicate<br/>";
+					$this->die_state[$file - 1] = 5;
 				}
 				else{
-					echo "file $file, Unkown Upload Error " . $files["file" . (string)$file]["error"] . "<br/>";	
-					$this->die_state[$file - 1] = true;
+					//echo "file $file, Unkown Upload Error " . $files["file" . (string)$file]["error"] . "<br/>";	
+					$this->die_state[$file - 1] = 6;
 				}
 			}
 		}
 		return $file_string;
 	}
 	
+	function getPostDetails($table, $refining_paramater, $bind_val){
+		$statement = $this->connection->prepare("SELECT * FROM `$table` WHERE `$table`.`$refining_paramater` = :bindval");
+		$statement->bindParam(":bindval", $bind_val);
+		try{
+			$response = $statement->execute();
+			return $statement->fetchAll();
+		}catch(Exception  $e){
+		   echo "<strong>" . $e->getMessage() . "</strong><br/>";
+		}	
+	}
+	
+	
 	function displayTabularDatabase($table_name, $display_images = false){
 		echo "<br/>Displaying All entries(lower number means posted sooner): <br/>";
 		$statement = $this->connection->query("Select * from ". $table_name . " ORDER BY PostNo DESC;");
 		$statement->execute();
 		$result_arr = $statement->fetchAll();
-		
-		foreach($result_arr[0] as $key=>$head){
-			if(is_numeric ($key)) unset($result_arr[0][$key]);
-		}
-		
-		echo "<table border='1'><tr>";
-		foreach($result_arr[0] as $key=>$head_item)
-			echo "<th>$key</th>";
-		echo "</tr>";	
-		
-		
-		
-		for($row = sizeof($result_arr) - 1; $row >= 0 ; $row--){
-			echo"<tr>";
-			$tupple = $result_arr[$row];
-			$column = 0;
-			foreach($tupple as $key=>$col){
+		if(sizeof($result_arr) !== 0){
+			foreach($result_arr[0] as $key=>$head){
 				if(is_numeric ($key)) unset($result_arr[0][$key]);
-				else {
-					if($column == 2 && $display_images){
-						$img_arr = explode(",", $col);
-						foreach($img_arr as $img){
-							$img = urldecode($img);
-							$img_ext = pathinfo($img, PATHINFO_EXTENSION);
-							if(strcmp($img_ext, "png") == 0 || strcmp($img_ext, "jpg")  == 0|| strcmp($img_ext, "gif") == 0) 
-								echo "<td>" . $this->createImageNode($img) . "</td>";
-							else
-								echo "<td>" . $this->createVideoNode($img) . "</td>";
-							
-						}
-					}
-					else{
-						if($key == "PostNo") echo "<td>$col - $row</td>";
-						else echo "<td>$col</td>";
-					}
-					$column++;
-				}
 			}
-			echo"</tr>";
+			
+			echo "<table border='1'><tr>";
+			foreach($result_arr[0] as $key=>$head_item)
+				echo "<th>$key</th>";
+			echo "</tr>";	
+			
+			
+			
+			for($row = sizeof($result_arr) - 1; $row >= 0 ; $row--){
+				echo"<tr>";
+				$tupple = $result_arr[$row];
+				$column = 0;
+				foreach($tupple as $key=>$col){
+					if(is_numeric ($key)) unset($result_arr[0][$key]);
+					else {
+						if($column == 2 && $display_images){
+							$img_arr = explode(",", $col);
+							foreach($img_arr as $img){
+								$img = urldecode($img);
+								$img_ext = pathinfo($img, PATHINFO_EXTENSION);
+								if(strcmp($img_ext, "png") == 0 || strcmp($img_ext, "jpg")  == 0|| strcmp($img_ext, "gif") == 0) 
+									echo "<td>" . $this->createImageNode($img) . "</td>";
+								else
+									echo "<td>" . $this->createVideoNode($img) . "</td>";
+								
+							}
+						}
+						else{
+							if($key == "PostNo") echo "<td>$col - $row</td>";
+							else echo "<td>$col</td>";
+						}
+						$column++;
+					}
+				}
+				echo"</tr>";
+			}
+			echo "</table><hr/>";
 		}
-		echo "</table><hr/>";
+		else echo '<table  border="1"><hr/><th>No Entries</th><tr></table>';
+		
 	}
 
 	function createImageNode($img_path){

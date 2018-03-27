@@ -11,9 +11,9 @@
 	//ob_end_clean();
 	$connection = new TwitterConnection();
 	$response = $connection->makeTweet($oldest[0]["Comment"], explode(",", $oldest[0]["ImageLocation"]));
-echo "</pre>";
-
-	if($response["created_at"] == null){
+	echo "</pre>";
+	echo $oldest[0]["Comment"] . "<hr/>";
+	if($response["created_at"] === null){
 		echo "post unsuccessful";
 		return;
 	} 

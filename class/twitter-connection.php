@@ -312,6 +312,8 @@ class TwitterConnection{
 	function makeTweet($comment, $file_arr){
 		$image_string = $this->addTweetMedia($file_arr);
 		
+		if(is_array($image_string)) return $image_string;
+		
 		//access info
 		$request_method = "POST";
 
@@ -384,23 +386,38 @@ class TwitterConnection{
 				
 				//upload file to twitter and get id for use in files
 				$size = filesize($file_arr[$file]);
-				if($file == 0)
-					$image_string = $this->getMediaID($base64, $size, 'image/' . $mime_type);
-				else
-					$image_string .= "," . $this->getMediaID($base64, $size, 'image/' . $mime_type);		
+				if($mime_type == "webm" ){
+					echo "webm fail";
+					return ["created_at"=>0];			
+				}
+				if($mime_type !== "mp4" ){
+					if($file == 0)
+						$image_string = $this->getMediaID($base64, $size, 'image/' . $mime_type);//$media_category = "tweet_image";
+					else
+						$image_string .= "," . $this->getMediaID($base64, $size, 'image/' . $mime_type)	;//$media_category = "tweet_gif";
+				}
+				else{	
+					echo"video";					
+						//$media_category = "tweet_video";
+					if($file == 0)
+						$image_string = $this->getMediaID($base64, $size, 'video/' . $mime_type);
+					else
+						$image_string .= "," . $this->getMediaID($base64, $size, 'video/' . $mime_type);	
+				}
+	
 			}
 		}
 		return rawurlencode($image_string);
 	}
 	
-	function getMediaID($base64, $size, $mime_type){		
+	function getMediaID($base64, $size, $mime_type,$media_category = -1){		
 		$random_value = OAuthRandom::randomAlphaNumet(32);
 		$timestamp = time();
 
 		echo "<br/><br/>";
 		/////////////MAKE INIT////////////
 		//post data
-		$media_id = $this->mediaInit($size, $mime_type, $random_value, $timestamp);
+		$media_id = $this->mediaInit($size, $mime_type, $random_value, $timestamp,$media_category);
 
 		echo "<br/><br/>";
 
@@ -417,20 +434,12 @@ class TwitterConnection{
 		return $media_id ;
 	}
 	
-	function mediaInit($size, $mime, $random_value, $timestamp){
+	function mediaInit($size, $mime, $random_value, $timestamp, $media_category){
 		$command = "INIT";
 		$method = "HMAC-SHA1";
 		$oauth_version = "1.0";
 				
-		$postfield_string = "command=$command&total_bytes=$size&media_type=$mime";
-		
-		$msg_len = (strlen($postfield_string));
-		//header data
-			  // BUILD SIGNATURE				 
-			$signature =   rawurlencode($this->generateSignature(array(
-										"base_url" => $this->media_api,
-										"request_method" => "POST"),
-										array(
+				$param_array = 	array(
 										"command" => "$command",
 										"total_bytes" => "$size",
 										"media_type" => "$mime",
@@ -440,7 +449,22 @@ class TwitterConnection{
 										"oauth_timestamp" => "$timestamp",
 										"oauth_consumer_key" => $this->oauth_data["oauth_consumer_key"],
 										"oauth_signature_method" => "$method",
-										),
+									);
+				
+		$postfield_string = "command=$command&total_bytes=$size&media_type=$mime";
+		if($media_category > -1){
+			$postfield_string .= "&media_category=$media_category";
+			$param_array["media_category"] ="$media_category";
+		}
+		
+		
+		$msg_len = (strlen($postfield_string));
+		//header data
+			  // BUILD SIGNATURE				 
+			$signature =   rawurlencode($this->generateSignature(array(
+										"base_url" => $this->media_api,
+										"request_method" => "POST"),
+										$param_array,
 										array(
 										"consumer_secret" => $this->oauth_data["consumer_secret"],
 										"oauth_secret" => $this->oauth_data["oauth_secret"]
