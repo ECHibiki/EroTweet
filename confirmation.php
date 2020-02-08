@@ -1,13 +1,12 @@
 <?php
 	require("class/queue-database-construction.php");
-	if(isset($_COOKIE["submission_id"])){
 		$construction = new QueueDatabaseConstruction();
 		echo'
 			<html>
 			<head></head>
 			<body>
 			<br/>
-			<a href="http://verniy.xyz/erotweet/queue-form">Back to Form</a>
+			<a href="http://verniy.ca/erotweet/queue-form">Back to Form</a>
 			<br/><hr/>
 
 			<div style="margin:10%">
@@ -58,17 +57,14 @@
 			echo "<hr/>";			
 			
 			if($do_not_submit) echo "Error in Tweet. Aborting addition to queue.<br/>";
-		}
 
 	}
-	else{
-		echo "Error Submitting. Cookies not enabled";
-	}
+
 	$construction->displayTabularDatabase("TweetQueue", true);
 ?>
 
 </div>
-<a href="http://verniy.xyz/erotweet/queue-form">Back to Form</a>
+<a href="http://verniy.ca/erotweet/queue-form">Back to Form</a>
 </body>
 </html>
 
